@@ -1,0 +1,12 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# PyCharm settings
+.idea/
+
+# Secrets - never upload these
+.env
+.aws/
