@@ -1,3 +1,4 @@
+CREATE DATABASE IF NOT EXISTS energy_trading;
 USE energy_trading;
 
 -- 1. Things being traded
