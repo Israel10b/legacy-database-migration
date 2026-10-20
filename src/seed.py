@@ -53,11 +53,13 @@ def reset_tables(cursor):
         cursor.execute(f"TRUNCATE TABLE {table}")
     cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
 
+
 def seed_commodities(cursor):
     cursor.executemany(
         "INSERT INTO commodities (name, unit) VALUES (%s, %s)",
         COMMODITIES,
     )
+
 
 def seed_traders(cursor):
     rows = []
@@ -70,6 +72,7 @@ def seed_traders(cursor):
         rows,
     )
 
+
 def seed_counterparties(cursor):
     rows = [(fake.unique.company(), random.choice(COUNTRIES))
             for _ in range(NUM_COUNTERPARTIES)]
@@ -77,6 +80,28 @@ def seed_counterparties(cursor):
         "INSERT INTO counterparties (company_name, country) VALUES (%s, %s)",
         rows,
     )
+
+
+def seed_market_prices(cursor, commodity_ids):
+    prices = {}
+    rows = []
+
+    for name, commodity_id in commodity_ids.items():
+        price = BASE_PRICES[name]
+        for i in range(NUM_DAYS):
+            day = START_DATE +timedelta(days=i)
+            if day.weekday() >= 5:
+                continue
+            price = max(1.0, price *(1+ random.gauss(0, 0.02)))
+            prices[(commodity_id, day)] = round(price, 2)
+            rows.append((commodity_id, day, round(price, 2)))
+
+    cursor.executemany(
+        "INSERT INTO market_prices (commodity_id, price_date, close_price) "
+        "VALUES (%s, %s, %s)",
+        rows,
+    )
+    return prices
 
 def main():
     conn = get_connection()
@@ -91,7 +116,6 @@ def main():
     finally:
         conn.close()
 
+
 if __name__ == "__main__":
     main()
-
-
