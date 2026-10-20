@@ -1,6 +1,6 @@
 """Fill the energy_trading database with realistic fake data."""
 import random
-
+from datetime import date, timedelta
 from faker import Faker
 
 from db import get_connection
@@ -23,6 +23,27 @@ COUNTRIES = ["Ireland", "United Kingdom", "Germany", "France",
 
 NUM_TRADERS = 20
 NUM_COUNTERPARTIES = 30
+
+START_DATE = date(2025, 1, 1)
+NUM_DAYS = 365
+NUM_TRADES = 5000
+
+BASE_PRICES = {
+    "Natural Gas": 35.0,
+    "Power": 80.0,
+    "Brent Crude": 75.0,
+    "Coal": 110.0,
+    "Carbon (EUA)": 70.0,
+}
+
+DESK_FOR_COMMODITY = {
+    "Natural Gas": "Gas",
+    "Power": "Power",
+    "Brent Crude": "Oil",
+    "Coal": "Coal",
+    "Carbon (EUA)": "Carbon",
+}
+
 
 def reset_tables(cursor):
     """Empty every table so the script can be re-run from scratch."""
@@ -72,3 +93,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
