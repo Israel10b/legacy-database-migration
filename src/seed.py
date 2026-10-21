@@ -44,7 +44,6 @@ DESK_FOR_COMMODITY = {
     "Carbon (EUA)": "Carbon",
 }
 
-
 def reset_tables(cursor):
     """Empty every table so the script can be re-run from scratch."""
     cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
@@ -103,6 +102,55 @@ def seed_market_prices(cursor, commodity_ids):
     )
     return prices
 
+
+def seed_trades(cursor, commodity_ids, prices):
+    """Create trades priced close to that day's market price."""
+
+    # 1. Group trader IDs by desk, e.g. {"Gas": [1, 4, 9], "Oil": [7], ...}
+    cursor.execute("SELECT trader_id, desk FROM traders")
+    traders_by_desk = {}
+    for trader_id, desk in cursor.fetchall():
+        traders_by_desk.setdefault(desk, []).append(trader_id)
+    # Backup list of every trader, in case a desk has nobody
+    all_traders = [t for ids in traders_by_desk.values() for t in ids]
+
+    # 2. Every counterparty ID, e.g. [1, 2, ... 30]
+    cursor.execute("SELECT counterparty_id FROM counterparties")
+    counterparty_ids = [row[0] for row in cursor.fetchall()]
+
+    # 3. Every day that has a market price (weekdays only), in order
+    trading_days = sorted({day for (_, day) in prices})
+
+    # 4. Build NUM_TRADES rows
+    rows = []
+    for _ in range(NUM_TRADES):
+        name = random.choice(list(commodity_ids))
+        commodity_id = commodity_ids[name]
+        desk_traders = traders_by_desk.get(DESK_FOR_COMMODITY[name]) or all_traders
+        day = random.choice(trading_days)
+        trade_price = round(prices[(commodity_id, day)] * random.uniform(0.98, 1.02), 2)
+
+        rows.append((
+            random.choice(desk_traders),                       # trader_id
+            commodity_id,                                      # commodity_id
+            random.choice(counterparty_ids),                   # counterparty_id
+            random.choice(["BUY", "SELL"]),                    # side
+            random.choice([100, 250, 500, 1000, 2500, 5000]),  # quantity
+            trade_price,                                       # price
+            day,                                               # trade_date
+            random.choices(["CONFIRMED", "PENDING", "CANCELLED"],
+                           weights=[90, 7, 3])[0],             # status
+        ))
+
+    # 5. Insert them all at once
+    cursor.executemany(
+        "INSERT INTO trades (trader_id, commodity_id, counterparty_id, side, "
+        "quantity, price, trade_date, status) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+        rows,
+    )
+
+
 def main():
     conn = get_connection()
     try:
@@ -111,11 +159,18 @@ def main():
             seed_commodities(cursor)
             seed_traders(cursor)
             seed_counterparties(cursor)
+
+            # Get {"Natural Gas": 1, "Power": 2, ...} from the database
+            cursor.execute("SELECT name, commodity_id FROM commodities")
+            commodity_ids = dict(cursor.fetchall())
+
+            # Prices first, because trades need them
+            prices = seed_market_prices(cursor, commodity_ids)
+            seed_trades(cursor, commodity_ids, prices)
         conn.commit()
-        print("Seeded commodities, traders and counterparties.")
+        print("Seeded all tables.")
     finally:
         conn.close()
-
 
 if __name__ == "__main__":
     main()
